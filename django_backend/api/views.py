@@ -4,6 +4,22 @@ from django.db import connection
 from datetime import datetime
 
 @api_view(['GET'])
+def theaters(request):
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT id, company, location FROM theater ORDER BY id")
+        rows = cursor.fetchall()
+    data = [{"id": row[0], "company": row[1], "location": row[2]} for row in rows]
+    return Response(data)
+
+@api_view(['GET'])
+def movies(request):
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT id, title FROM movie ORDER BY id")
+        rows = cursor.fetchall()
+    data = [{"id": row[0], "title": row[1]} for row in rows]
+    return Response(data)
+
+@api_view(['GET'])
 def best_theater(request):
   FIXED_TICKET_PRICE = 10.00  # Can adjust as needed
 
@@ -18,7 +34,7 @@ def best_theater(request):
     return Response({"error": "Invalid date format. Date should be of type YYYY-MM-DD"}, status=400)
     
   query = """
-      SELECT t.id, t.company, t.location, COUNT(s.id) AS total_sales, COUNT(s.id) * %s AS total_revenue
+      SELECT t.id AS theater_id, t.company AS company_name, t.location, COUNT(s.id) AS total_sales, COUNT(s.id) * %s AS total_revenue
       FROM tickets s
       JOIN theater t ON s.theaterId = t.id
       WHERE s.sale_date = %s
@@ -33,8 +49,8 @@ def best_theater(request):
 
   if row:
       theater = {
-          "id": row[0],
-          "company": row[1],
+          "theater_id": row[0],
+          "company_name": row[1],
           "location": row[2],
           "total_sales": row[3],
           "total_revenue": row[4]

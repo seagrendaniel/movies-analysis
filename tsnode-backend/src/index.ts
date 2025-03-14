@@ -1,11 +1,14 @@
 import * as dotenv from 'dotenv'
 import express, {Request, Response} from 'express'
+import cors from 'cors'
 import {Pool} from 'pg'
+
 
 dotenv.config({path: '../.env'})
 
 
 const app = express()
+app.use(cors());
 const port = process.env.PORT || 4000
 
 
@@ -35,7 +38,6 @@ app.get('/api/best_theater', async (req: Request, res: Response): Promise<void> 
     return
   }
 
-
   const FIXED_TICKET_PRICE = 10.00;
   const queryBestTheater = `
     SELECT t.id AS theater_id, t.company AS company_name, t.location,
@@ -60,6 +62,31 @@ app.get('/api/best_theater', async (req: Request, res: Response): Promise<void> 
     res.status(500).json({error: 'Internal server errror.'})
   }
 })
+
+// GET theaters
+app.get('/api/theaters', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const query = `SELECT id, company, location FROM theater ORDER BY id`;
+    const result = await pool.query(query);
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching theaters:', error);
+    res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
+// GET Movies
+app.get('/api/movies', async (req: Request, res: Response):Promise<void> => {
+  try {
+    const query = `SELECT id, title FROM movie ORDER BY id`;
+    const result = await pool.query(query);
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching movies:', error);
+    res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
 
 app.listen(port, () => {
   console.log(`Node backend listening on port http://localhost:${port}`)

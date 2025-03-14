@@ -1,0 +1,12 @@
+# Ignore env vars
+.env
+
+# Ignore Python bytecode
+__pycache__/
+*.pyc
+
+# Node modules
+node_modules/
+
+# Logs
+*.log

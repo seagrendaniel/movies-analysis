@@ -1,0 +1,5 @@
+Django>=3.1.7
+djangorestframework
+django-environ
+psycopg2-binary
+Faker

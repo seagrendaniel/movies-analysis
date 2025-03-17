@@ -27,12 +27,14 @@ export function useBestTheater() {
     try {
       const response = await fetch(url);
       if (!response.ok) {
-        throw new Error(`Error fetching data from ${api} API.`);
+        return false
       }
       const result = await response.json();
       setData(result);
+      return true
     } catch (err: any) {
-      setError(err.message || 'Unknown error occurred.');
+      console.log(err.message || 'Unknown error occurred.');
+      return false
     } finally {
       setLoading(false);
     }

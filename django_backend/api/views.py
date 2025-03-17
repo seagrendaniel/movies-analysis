@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from django.db import connection
 from datetime import datetime
 
+FIXED_TICKET_PRICE = 10.00  # Can adjust as needed
 
 @api_view(['GET'])
 def theaters(request):
@@ -24,7 +25,6 @@ def movies(request):
 @api_view(['GET'])
 @ratelimit(key='ip', rate='60/m', block=True)
 def best_theater(request):
-  FIXED_TICKET_PRICE = 10.00  # Can adjust as needed
 
   sale_date = request.query_params.get('sale_date')
   if not sale_date: 
@@ -61,3 +61,51 @@ def best_theater(request):
       return Response(theater)
   else:
       return Response({"message": "No data found for the given date."}, status=404)
+
+  
+@api_view(['GET'])
+def company_sales_performance(request):
+    company = request.query_params.get('company')
+    if not company:
+        return Response({"error": "Please provide a company parameter."}, status=400)
+    
+    query = """
+      SELECT
+        t.id AS "theaterId",
+        t.company AS "company",
+        t.location AS "location",
+        json_agg(
+          json_build_object(
+            'date', to_char(tp.sale_date, 'YYYY-MM'),
+            'ticketsSold', tp.ticketsSold,
+            'revenue', tp.revenue
+          ) ORDER BY tp.sale_date
+        ) AS "sales"
+      FROM theater t
+      JOIN (
+        SELECT 
+          theaterId,
+          sale_date,
+          COUNT(*) AS ticketsSold,
+          COUNT(*) * %s AS revenue
+        FROM tickets
+        WHERE sale_date BETWEEN current_date - interval '6 months' AND current_date
+        GROUP BY theaterId, sale_date
+      ) tp ON tp.theaterId = t.id
+      WHERE t.company = %s
+      GROUP BY t.id, t.company, t.location;
+    """
+
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(query, [FIXED_TICKET_PRICE, company])
+            rows = cursor.fetchall()
+            if not rows:
+                return Response({"message": "No sales data found for the given company."}, status=404)
+            # Get column names from the cursor description to ensure key matching 
+            columns = [col[0] for col in cursor.description]
+            results = [dict(zip(columns, row)) for row in rows]
+        return Response(results)
+    except Exception as e:
+        print("Error fetching sales data:", e)
+        return Response({"error": "Internal server error."}, status=500)

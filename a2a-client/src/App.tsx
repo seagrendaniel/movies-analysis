@@ -3,20 +3,23 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import { useLocations, TheaterOption } from './hooks/useLocations';
 import { useMovies, MovieOption } from './hooks/useMovies';
 import { useBestTheater} from './hooks/useBestTheater';
+import PerformanceGraph from './components/PerformanceGraph';
 
 function App() {
   const [saleDate, setSaleDate] = useState<string>('');
-
-  // State to store the sale date that was submitted
   const [submittedSaleDate, setSubmittedSaleDate] = useState<string>('');
 
-  // State for min and max date allowed (6 months range)
+  // Min/Max date (6 month range)
   const [minDate, setMinDate] = useState<string>('');
   const [maxDate, setMaxDate] = useState<string>('');
 
-  // API type selection state (last API used)
-  const [apiType, setApiType] = useState<'node' | 'django' | ''>('');
-
+  // API selection state for /best_theater endpoint
+  const [bestTheaterApiType, setBestTheaterApiType] = useState<'node' | 'django' | ''>('');
+  // API selection state for /company_sales_performance endpoint
+  const [performanceApiType, setPerformanceApiType] = useState<'node' | 'django'>('node');
+  const [serverDisconnected, setServerDisconnected] = useState<boolean>(false)   // <---- to rerender other component data w/o page refresh
+  
+  // Display theaters & movies
   const { theaters, loading: theatersLoading, error: theatersError } = useLocations();
   const { movies, loading: moviesLoading, error: moviesError } = useMovies();
 
@@ -34,30 +37,39 @@ function App() {
     sixMonthsAgo.setMonth(today.getMonth() - 6);
     const minStr = sixMonthsAgo.toISOString().split('T')[0];
 
-    setSaleDate(todayStr);
     setMaxDate(todayStr);
     setMinDate(minStr);
   }, []);
 
+  const isSaleDateValid = saleDate !== '' && saleDate !== "--/--/----";
+
   // Submit handler for Node API
-  const handleSubmitNode = (e: React.FormEvent) => {
+  const handleSubmitNode = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!saleDate) {
+    if (!isSaleDateValid) {
       alert('Please select a date.');
       return;
     }
-    // Validate that saleDate is within the allowed range
     if (saleDate < minDate || saleDate > maxDate) {
       alert('Date not in range');
       return;
     }
-    setApiType('node');
-    setSubmittedSaleDate(saleDate);
-    fetchBestTheater('node', saleDate);
+    try {
+      setBestTheaterApiType('node');
+      setSubmittedSaleDate(saleDate);
+      const success = await fetchBestTheater('node', saleDate);
+      if (!success) {
+        setServerDisconnected(true)
+        return
+      }
+    } catch(err) {
+      setServerDisconnected(true)
+      return
+    }
   };
 
   // Submit handler for Django API
-  const handleSubmitDjango = (e: React.FormEvent) => {
+  const handleSubmitDjango = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!saleDate) {
       alert('Please select a date.');
@@ -67,10 +79,30 @@ function App() {
       alert('Date not in range');
       return;
     }
-    setApiType('django');
-    setSubmittedSaleDate(saleDate);
-    fetchBestTheater('django', saleDate);
+    try {
+      setBestTheaterApiType('django');
+      setSubmittedSaleDate(saleDate);
+      const success = await fetchBestTheater('django', saleDate);
+      if(!success) {
+        setServerDisconnected(true)
+        return
+      }
+    } catch(err) {
+      setServerDisconnected(true)
+      return
+    }
   };
+
+  if(serverDisconnected) {
+    return (
+      <div className="container my-4 d-flex flex-column align-items-center">
+        <h1 className="text-center mb-4 text-danger">Server Disconnected</h1>
+        <p className="text-center">
+          Unable to connect to the server. Please try again later or check your network connection.
+        </p>
+      </div>
+    )
+  }
 
   return (
     <div className="container my-4 d-flex flex-column align-items-center">
@@ -153,23 +185,30 @@ function App() {
         </div>
 
         <div className="mb-3 text-center">
-          <h3>Select a Date To Analyze Theater Performance</h3>
+          <h3>Analyze Daily Theater Performance</h3>
           <input
             type="date"
             className="form-control w-50 mx-auto"
             value={saleDate}
             onChange={(e) => setSaleDate(e.target.value)}
+            placeholder="--/--/----"
             min={minDate}
             max={maxDate}
           />
         </div>
 
         <div className="mb-3 d-flex justify-content-around w-50 mx-auto">
-          <button type="button" className="btn btn-primary" onClick={handleSubmitNode}>
-            Find with Node API
+          <button type="button" className="btn btn-primary" 
+          onClick={handleSubmitNode}
+          disabled={!isSaleDateValid}
+          >
+            Use Node API
           </button>
-          <button type="button" className="btn btn-primary" onClick={handleSubmitDjango}>
-            Find with Django API
+          <button type="button" className="btn btn-primary" 
+          onClick={handleSubmitDjango}
+          disabled={!isSaleDateValid}
+          >
+            Use Django API
           </button>
         </div>
       </div>
@@ -183,11 +222,18 @@ function App() {
               <p className="card-text"><strong>Location:</strong> {data.location}</p>
               <p className="card-text"><strong>Tickets Sold:</strong> {data.total_sales}</p>
               <p className="card-text"><strong>Total Revenue:</strong> ${data.total_revenue}</p>
-              {apiType && <p className="small">Queried with {apiType.toUpperCase()} API</p>}
+              {bestTheaterApiType && <p className="small">Queried with {bestTheaterApiType.toUpperCase()} API</p>}
             </div>
           </div>
         </div>
       )}
+<div className="w-100 d-flex flex-column align-items-center my-4">
+  <h1 className="text-center mb-4">Theater Performance Dashboard</h1>
+  <div className="w-100">
+    <PerformanceGraph performanceApiType={performanceApiType} initialMetric="ticketsSold" />
+  </div>
+</div>
+
     </div>
   );
 }

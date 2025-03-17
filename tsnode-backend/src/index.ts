@@ -4,9 +4,13 @@ import cors from 'cors'
 import {Pool} from 'pg'
 import rateLimit from 'express-rate-limit'
 import morgan from 'morgan'
+import { Interface } from 'readline'
+import { error } from 'console'
 
 
 dotenv.config({path: '../.env'})
+
+/* ------------------------ Utility ------------------------------ */
 
 // Rate limit requests to 1 req/sec (60 req/min)
 const limiter = rateLimit({
@@ -22,6 +26,21 @@ function isValidDate(dateString: string): boolean {
   const date = new Date(dateString);
   return !isNaN(date.getTime());
 }
+
+interface PerformanceData {
+  theaterId: number,
+  company: string,
+  location: string,
+  sales: [{
+    date: string,
+    ticketsSold: number,
+    revenue: number
+  }]
+}
+
+/* ------------------------ API ------------------------------ */
+
+const FIXED_TICKET_PRICE = 10.00;
 
 const app = express()
 app.use(cors());
@@ -47,7 +66,6 @@ app.get('/api/best_theater', async (req: Request, res: Response): Promise<void> 
     return
   }
 
-  const FIXED_TICKET_PRICE = 10.00;
   const queryBestTheater = `
     SELECT t.id AS theater_id, t.company AS company_name, t.location,
            COUNT(s.id) AS total_sales, COUNT(s.id) * $2 AS total_revenue
@@ -96,6 +114,52 @@ app.get('/api/movies', async (req: Request, res: Response):Promise<void> => {
   }
 });
 
+app.get('/api/company_sales_performance', async (req: Request, res: Response): Promise<void> => {
+  const company = req.query.company as string;
+  if (!company) {
+    res.status(400).json({ error: 'Please provide a company parameter.' });
+    return;
+  }
+
+  const query = `
+    SELECT
+      t.id AS "theaterId",
+      t.company AS "company",
+      t.location AS "location",
+      json_agg(
+        json_build_object(
+          'date', to_char(tp.sale_date, 'YYYY-MM'),
+          'ticketsSold', tp.ticketsSold,
+          'revenue', tp.revenue
+        ) ORDER BY tp.sale_date
+      ) AS "sales"
+    FROM theater t
+    JOIN (
+      SELECT 
+        theaterId,
+        sale_date,
+        COUNT(*) AS ticketsSold,
+        COUNT(*) * $1 AS revenue
+      FROM tickets
+      WHERE sale_date BETWEEN current_date - interval '6 months' AND current_date
+      GROUP BY theaterId, sale_date
+    ) tp ON tp.theaterId = t.id
+    WHERE t.company = $2
+    GROUP BY t.id, t.company, t.location;
+  `;
+
+  try {
+    const result = await pool.query(query, [FIXED_TICKET_PRICE, company]);
+    if (result.rows.length === 0) {
+      res.status(404).json({ message: 'No sales data found for the given company.' });
+    } else {
+      res.json(result.rows);
+    }
+  } catch (error) {
+    console.error('Error fetching sales data:', error);
+    res.status(500).json({ error: 'Internal server error.' });
+  }
+});
 
 app.listen(port, () => {
   console.log(`Node backend listening on port http://localhost:${port}`)

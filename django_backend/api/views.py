@@ -1,7 +1,9 @@
+from django_ratelimit.decorators import ratelimit
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from django.db import connection
 from datetime import datetime
+
 
 @api_view(['GET'])
 def theaters(request):
@@ -20,6 +22,7 @@ def movies(request):
     return Response(data)
 
 @api_view(['GET'])
+@ratelimit(key='ip', rate='60/m', block=True)
 def best_theater(request):
   FIXED_TICKET_PRICE = 10.00  # Can adjust as needed
 

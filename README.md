@@ -12,6 +12,7 @@ This project is a full-stack application that allows users to analyze movie thea
   - [Node API](#node-api)
 - [Database Schema and Seeding](#database-schema-and-seeding)
 - [Running the Application](#running-the-application)
+- [Security Considerations](#security-considerations)
 - [License](#license)
 
 ## Project Overview
@@ -167,6 +168,30 @@ A seeding script (`setup_and_seed_db.sh`) is provided in the `scripts` directory
 	```
 	
 The React client runs on `http://localhost:3000` and can query both the Django and Node APIs.
+
+## Security Considerations
+
+To help protect the application against malicious queries and potential abuse, the following security measures have been implemented:
+
+- **Parameterized Queries:**  
+  Both the Node and Django APIs use parameterized queries (via the `pg` library for Node and Django’s database cursor for Django) to prevent SQL injection attacks.
+
+- **Input Validation:**  
+  The APIs validate input data (e.g., ensuring the `sale_date` follows the YYYY-MM-DD format) before processing queries. Helper functions and explicit validations are used to reject improperly formatted or missing data.
+
+- **Rate Limiting:**  
+  - In the **Node API**, the [express-rate-limit](https://www.npmjs.com/package/express-rate-limit) package is used to limit the number of requests per IP address.  
+  - In the **Django API**, the [django-ratelimit](https://pypi.org/project/django-ratelimit/) package is employed to block excessive requests, reducing the risk of denial-of-service (DoS) attacks.
+
+- **Logging and Monitoring:**  
+  - **Node API:** Uses [morgan](https://www.npmjs.com/package/morgan) to log incoming HTTP requests for monitoring and debugging purposes.
+  - **Django API:** The built-in logging framework is configured to capture warnings and errors, which helps in identifying suspicious activity.
+
+- **CORS Configuration:**  
+  Cross-Origin Resource Sharing (CORS) is configured for both APIs (using `cors` in Node and `django-cors-headers` in Django) to control which origins can access the API endpoints.
+
+These measures work together to safeguard the application against common web vulnerabilities and abuse by "bad actors."
+
 
 ## License
 

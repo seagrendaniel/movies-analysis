@@ -2,13 +2,31 @@ import * as dotenv from 'dotenv'
 import express, {Request, Response} from 'express'
 import cors from 'cors'
 import {Pool} from 'pg'
+import rateLimit from 'express-rate-limit'
+import morgan from 'morgan'
 
 
 dotenv.config({path: '../.env'})
 
+// Rate limit requests to 1 req/sec (60 req/min)
+const limiter = rateLimit({
+  windowMs: 1 * 60 * 1000,
+  max: 60,
+  message: 'Too many requests from this IP address, please try again later.'
+})
+
+// Helper function to validate date format from API request
+function isValidDate(dateString: string): boolean {
+  const regex = /^\d{4}-\d{2}-\d{2}$/;
+  if(!regex.test(dateString)) return false;
+  const date = new Date(dateString);
+  return !isNaN(date.getTime());
+}
 
 const app = express()
 app.use(cors());
+app.use(limiter)
+app.use(morgan('combined'))
 const port = process.env.PORT || 4000
 
 
@@ -23,18 +41,9 @@ const pool = new Pool({
 
 app.get('/api/best_theater', async (req: Request, res: Response): Promise<void> => {
   const sale_date: string = req.query.sale_date as string
-
-  // Confirm sale_date param exists in API request
-  if (!sale_date) {
-    res.status(400).json({error: 'Please provide a sale_date parameter in the format YYYY-MM-DD.'})
-    return
-  }
-
-  // Validate sale_date format
-  try {
-    new Date(sale_date)
-  } catch (err) {
-    res.status(400).json({error: 'Invalid sale_date provided. Please use the format YYYY-MM-DD.'})
+  // Confirm sale_date param exists in API request and in correct format
+  if (!sale_date || !isValidDate(sale_date)) {
+    res.status(400).json({error: 'Invalid or missing sale_date parameter (expected format: YYYY-MM-DD).'})
     return
   }
 

@@ -87,6 +87,21 @@ AUTH_PASSWORD_VALIDATORS = [
 
 CORS_ALLOW_ALL_ORIGINS = True
 
+# Logs and sends WARNING level & higher messages to console
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'WARNING',
+    },
+}
+
 # Internationalization
 LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'UTC'

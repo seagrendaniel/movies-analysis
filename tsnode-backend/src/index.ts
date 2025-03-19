@@ -106,7 +106,7 @@ app.get('/api/theaters', async (req: Request, res: Response): Promise<void> => {
 app.get('/api/movies', async (req: Request, res: Response):Promise<void> => {
   try {
     const query = `SELECT id, title FROM movie ORDER BY id`;
-    const result = await pool.query(query);
+    const result = await pool.query(query);``
     res.json(result.rows);
   } catch (error) {
     console.error('Error fetching movies:', error);
@@ -114,6 +114,7 @@ app.get('/api/movies', async (req: Request, res: Response):Promise<void> => {
   }
 });
 
+// GET Sales Performance for both Companies
 app.get('/api/company_sales_performance', async (req: Request, res: Response): Promise<void> => {
   const company = req.query.company as string;
   if (!company) {

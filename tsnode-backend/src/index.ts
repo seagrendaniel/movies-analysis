@@ -121,7 +121,7 @@ app.get('/api/company_sales_performance', async (req: Request, res: Response): P
     res.status(400).json({ error: 'Please provide a company parameter.' });
     return;
   }
-
+  // create sql query
   const query = `
     SELECT
       t.id AS "theaterId",
